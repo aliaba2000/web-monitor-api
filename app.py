@@ -3,8 +3,18 @@ import requests
 import ssl
 import socket
 import datetime
+import os
 
 app = Flask(__name__)
+API_KEY = os.environ.get('API_KEY', '')
+
+@app.before_request
+def check_api_key():
+    if request.path == '/':
+        return
+    key = request.args.get('key') or request.headers.get('X-API-Key')
+    if not API_KEY or key != API_KEY:
+        return jsonify({"error": "Unauthorized"}), 401
 
 def get_ssl_info(hostname):
     try:
@@ -32,10 +42,7 @@ def get_ssl_info(hostname):
 def index():
     return jsonify({
         "service": "Web Monitor API",
-        "usage": "/check?url=https://example.com",
-        "params": {
-            "url": "adres URL do sprawdzenia (wymagane)"
-        }
+        "usage": "/check?url=https://example.com&key=TWOJKLUCZ"
     })
 
 @app.route('/check')
@@ -63,10 +70,7 @@ def http_check():
 
         redirects = []
         for r in resp.history:
-            redirects.append({
-                "url": r.url,
-                "status_code": r.status_code
-            })
+            redirects.append({"url": r.url, "status_code": r.status_code})
 
         result["status_code"] = resp.status_code
         result["response_time_ms"] = elapsed_ms
@@ -97,6 +101,5 @@ def http_check():
     return jsonify(result)
 
 if __name__ == '__main__':
-    import os
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
